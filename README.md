@@ -10,27 +10,27 @@ It includes:
 - `SeedanceClient` wrapper backed by the official Volcengine Ark Python SDK
 - Content helpers for text, images, videos, audio, and draft tasks
 - CLI for quick local operations
-- Tests based on `httpx.MockTransport`, with no real API calls
+- Unit tests that validate SDK call arguments without real API calls
 
 ## Installation
 
+Recommended with `uv`:
+
 ```powershell
-python -m venv .venv
+uv venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install -e ".[dev]"
+uv pip install -r requirements-dev.txt
 ```
 
-You can also install from the requirements files:
+If the default `uv` cache directory has permission issues, keep the cache inside the project:
 
 ```powershell
-python -m pip install -r requirements-dev.txt
+$env:UV_CACHE_DIR=".uv-cache"
+uv venv .venv
+uv pip install -r requirements-dev.txt
 ```
 
-The project uses the official Ark SDK dependency:
-
-```powershell
-python -m pip install "volcengine-python-sdk[ark]"
-```
+The project uses the official Ark SDK dependency: `volcengine-python-sdk[ark]`.
 
 ## Configuration
 
@@ -50,6 +50,7 @@ Optional environment variables:
 ## GUI
 
 ```powershell
+.venv\Scripts\Activate.ps1
 streamlit run src/gui/app.py
 ```
 
@@ -60,6 +61,7 @@ After the app starts, open the local browser page and enter your API key, model,
 Text-to-video:
 
 ```powershell
+.venv\Scripts\Activate.ps1
 seedance create --model doubao-seedance-2-0-260128 --prompt "A kitten watches the rain by the window, cinematic, soft lighting" --ratio 16:9 --duration 5
 ```
 
@@ -88,6 +90,12 @@ seedance delete cgt-xxxx
 ```
 
 ## Python Example
+
+This project uses a `src` layout. If you run scripts without editable installation, set:
+
+```powershell
+$env:PYTHONPATH="src"
+```
 
 ```python
 from core import SeedanceClient, text_content
@@ -118,12 +126,28 @@ tests/
   test_client.py
 ```
 
+## Verification
+
+```powershell
+.venv\Scripts\Activate.ps1
+python -m pytest
+python -m ruff check .
+```
+
+Unit tests do not call the real API by default. To run the real SDK integration test:
+
+```powershell
+$env:SEEDANCE_RUN_INTEGRATION_TESTS="1"
+$env:SEEDANCE_API_KEY="your Volcengine Ark API key"
+python -m pytest -m integration
+```
+
 ## Notes
 
 - Video generation tasks are asynchronous. Create a task first, then query its status.
 - Generated video URLs expire. Save or transfer results promptly.
 - For Seedance 2.0 input rules, duration, resolution, face-material restrictions, and other API details, see the local Chinese API documentation files in this repository.
-- To run real SDK integration tests, set `SEEDANCE_RUN_INTEGRATION_TESTS=1` and configure `SEEDANCE_API_KEY`.
+- Model IDs ultimately depend on the models or endpoint IDs enabled in your Volcengine Ark account.
 
 ## License
 

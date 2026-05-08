@@ -1,9 +1,70 @@
+# Environment and secrets
 .venv/
+.env
+.env.*
+!.env.example
+
+# uv
+.uv-cache/
+uv.lock
+
+# Python bytecode and caches
 __pycache__/
 *.py[cod]
+*$py.class
+.python-version
+
+# Test, lint, type-check, and coverage caches
 .pytest_cache/
 .ruff_cache/
-.env
+.mypy_cache/
+.pyre/
+.pytype/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Build and packaging outputs
 dist/
 build/
 *.egg-info/
+*.egg
+pip-wheel-metadata/
+
+# Streamlit and local runtime state
+.streamlit/secrets.toml
+.streamlit/config.toml
+*.log
+logs/
+outputs/
+downloads/
+tmp/
+temp/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.code-workspace
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Local data and generated media
+*.mp4
+*.mov
+*.webm
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.wav
+*.mp3
