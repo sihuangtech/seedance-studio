@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
-import httpx
+from volcenginesdkarkruntime import Ark
 
-from core.config import SeedanceConfig
+from core.config import DEFAULT_BASE_URL, SeedanceConfig
 from core.errors import SeedanceAPIError
 
 TERMINAL_STATUSES = {"succeeded", "failed", "cancelled", "expired"}
@@ -17,22 +17,17 @@ class SeedanceClient:
         self,
         api_key: str,
         *,
-        base_url: str = "https://ark.cn-beijing.volces.com/api/v3",
+        base_url: str = DEFAULT_BASE_URL,
         default_model: str | None = None,
         timeout: float = 60.0,
-        transport: httpx.BaseTransport | None = None,
+        ark_client: Any | None = None,
     ) -> None:
         self.default_model = default_model
-        self._client = httpx.Client(
-            base_url=base_url.rstrip("/"),
+        self.timeout = timeout
+        self._client = ark_client or create_ark_client(
+            api_key=api_key,
+            base_url=base_url,
             timeout=timeout,
-            transport=transport,
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-                "Accept": "application/json",
-                "User-Agent": "seedance-studio/0.1.0",
-            },
         )
 
     @classmethod
@@ -46,7 +41,9 @@ class SeedanceClient:
         )
 
     def close(self) -> None:
-        self._client.close()
+        close = getattr(self._client, "close", None)
+        if callable(close):
+            close()
 
     def __enter__(self) -> SeedanceClient:
         return self
@@ -80,32 +77,34 @@ class SeedanceClient:
         if not task_model:
             raise ValueError("model is required. Pass model=... or set SEEDANCE_MODEL.")
 
-        payload: dict[str, Any] = {"model": task_model, "content": list(content)}
-        optional_fields = {
+        payload: dict[str, Any] = {
+            "model": task_model,
+            "content": list(content),
+            "safety_identifier": safety_identifier,
             "callback_url": callback_url,
             "return_last_frame": return_last_frame,
             "service_tier": service_tier,
             "execution_expires_after": execution_expires_after,
             "generate_audio": generate_audio,
             "draft": draft,
-            "tools": list(tools) if tools is not None else None,
-            "safety_identifier": safety_identifier,
+            "camera_fixed": camera_fixed,
+            "watermark": watermark,
+            "seed": seed,
             "resolution": resolution,
             "ratio": ratio,
             "duration": duration,
             "frames": frames,
-            "seed": seed,
-            "camera_fixed": camera_fixed,
-            "watermark": watermark,
+            "tools": list(tools) if tools is not None else None,
+            "timeout": self.timeout,
         }
-        payload.update({key: value for key, value in optional_fields.items() if value is not None})
+        payload = without_none(payload)
         if extra:
-            payload.update(extra)
+            payload["extra_body"] = dict(extra)
 
-        return self._request("POST", "/contents/generations/tasks", json=payload)
+        return self._call_ark(lambda: self._tasks.create(**payload))
 
     def get_task(self, task_id: str) -> dict[str, Any]:
-        return self._request("GET", f"/contents/generations/tasks/{task_id}")
+        return self._call_ark(lambda: self._tasks.get(task_id=task_id, timeout=self.timeout))
 
     def list_tasks(
         self,
@@ -117,24 +116,21 @@ class SeedanceClient:
         model: str | None = None,
         service_tier: str | None = None,
     ) -> dict[str, Any]:
-        params: list[tuple[str, str | int]] = []
-        if page_num is not None:
-            params.append(("page_num", page_num))
-        if page_size is not None:
-            params.append(("page_size", page_size))
-        if status is not None:
-            params.append(("filter.status", status))
-        if model is not None:
-            params.append(("filter.model", model))
-        if service_tier is not None:
-            params.append(("filter.service_tier", service_tier))
-        for task_id in task_ids or ():
-            params.append(("filter.task_ids", task_id))
-
-        return self._request("GET", "/contents/generations/tasks", params=params)
+        payload = without_none(
+            {
+                "page_num": page_num,
+                "page_size": page_size,
+                "status": status,
+                "task_ids": list(task_ids) if task_ids is not None else None,
+                "model": model,
+                "service_tier": service_tier,
+                "timeout": self.timeout,
+            }
+        )
+        return self._call_ark(lambda: self._tasks.list(**payload))
 
     def delete_task(self, task_id: str) -> None:
-        self._request("DELETE", f"/contents/generations/tasks/{task_id}")
+        self._call_ark(lambda: self._tasks.delete(task_id, timeout=self.timeout))
 
     def wait_for_task(
         self,
@@ -152,37 +148,59 @@ class SeedanceClient:
                 raise TimeoutError(f"Timed out waiting for task {task_id}")
             time.sleep(interval)
 
-    def _request(self, method: str, path: str, **kwargs: Any) -> dict[str, Any]:
-        response = self._client.request(method, path, **kwargs)
-        if response.status_code == 204 or not response.content:
-            return {}
+    @property
+    def _tasks(self) -> Any:
+        return self._client.content_generation.tasks
 
+    def _call_ark(self, action: Callable[[], Any]) -> dict[str, Any]:
         try:
-            data = response.json()
-        except ValueError as exc:
-            if response.is_success:
-                return {}
-            raise SeedanceAPIError(
-                response.text,
-                status_code=response.status_code,
-                response=response.text,
-            ) from exc
+            return to_plain_data(action())
+        except Exception as exc:
+            raise to_seedance_api_error(exc) from exc
 
-        if response.is_success:
-            return data
 
-        error = data.get("error") if isinstance(data, dict) else None
-        message = None
-        code = None
-        if isinstance(error, dict):
-            message = error.get("message")
-            code = error.get("code")
-        if not message and isinstance(data, dict):
-            message = data.get("message")
-            code = code or data.get("code")
-        raise SeedanceAPIError(
-            message or f"Seedance API request failed with HTTP {response.status_code}",
-            status_code=response.status_code,
-            code=code,
-            response=data,
-        )
+def create_ark_client(*, api_key: str, base_url: str, timeout: float) -> Any:
+    return Ark(api_key=api_key, base_url=base_url, timeout=timeout)
+
+
+def without_none(payload: Mapping[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in payload.items() if value is not None}
+
+
+def to_plain_data(value: Any) -> dict[str, Any]:
+    if value is None:
+        return {}
+    converted = convert_value(value)
+    if isinstance(converted, dict):
+        return converted
+    return {"data": converted}
+
+
+def convert_value(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {key: convert_value(item) for key, item in value.items()}
+    if isinstance(value, list | tuple):
+        return [convert_value(item) for item in value]
+
+    model_dump = getattr(value, "model_dump", None)
+    if callable(model_dump):
+        return convert_value(model_dump(exclude_none=True))
+
+    as_dict = getattr(value, "dict", None)
+    if callable(as_dict):
+        return convert_value(as_dict(exclude_none=True))
+
+    return value
+
+
+def to_seedance_api_error(exc: Exception) -> SeedanceAPIError:
+    status_code = getattr(exc, "status_code", None)
+    code = getattr(exc, "code", None)
+    body = getattr(exc, "body", None)
+    message = getattr(exc, "message", None) or str(exc)
+    return SeedanceAPIError(
+        message,
+        status_code=status_code,
+        code=code,
+        response=body,
+    )

@@ -5,7 +5,7 @@
 Seedance Studio 是一个面向火山方舟 Seedance 视频生成 API 的 Python 客户端项目，包含：
 
 - Streamlit 图形界面：创建、查询、列表、取消/删除任务
-- `SeedanceClient`：创建、查询、列表、取消/删除任务
+- 基于火山方舟官方 Python SDK 的 `SeedanceClient`
 - 内容构造函数：文本、图片、视频、音频、样片任务
 - CLI：快速创建任务、轮询任务、列出任务、删除任务
 - 基础测试：使用 `httpx.MockTransport`，不会真实请求 API
@@ -16,6 +16,12 @@ Seedance Studio 是一个面向火山方舟 Seedance 视频生成 API 的 Python
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev]"
+```
+
+项目底层使用官方 Ark SDK，也可以单独安装：
+
+```powershell
+python -m pip install "volcengine-python-sdk[ark]"
 ```
 
 ## 配置
@@ -105,6 +111,7 @@ tests/
 - 生成任务是异步接口，创建后需要查询任务状态。
 - 生成结果 URL 有有效期，请及时转存。
 - Seedance 2.0 系列输入素材、时长、分辨率、真人脸部素材等规则请以目录内 API 文档为准。
+- 如需运行真实 SDK 集成测试，请设置 `SEEDANCE_RUN_INTEGRATION_TESTS=1` 并配置 `SEEDANCE_API_KEY`。
 
 ## 许可证
 

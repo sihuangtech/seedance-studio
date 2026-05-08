@@ -1,2 +1,2 @@
-httpx>=0.27,<1.0
+volcengine-python-sdk[ark]>=5.0.26
 streamlit>=1.36,<2.0

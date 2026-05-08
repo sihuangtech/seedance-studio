@@ -7,7 +7,7 @@ Seedance Studio is a Python client project for the Volcengine Ark Seedance video
 It includes:
 
 - Streamlit GUI for creating, querying, listing, cancelling, and deleting tasks
-- `SeedanceClient` SDK for programmatic use
+- `SeedanceClient` wrapper backed by the official Volcengine Ark Python SDK
 - Content helpers for text, images, videos, audio, and draft tasks
 - CLI for quick local operations
 - Tests based on `httpx.MockTransport`, with no real API calls
@@ -24,6 +24,12 @@ You can also install from the requirements files:
 
 ```powershell
 python -m pip install -r requirements-dev.txt
+```
+
+The project uses the official Ark SDK dependency:
+
+```powershell
+python -m pip install "volcengine-python-sdk[ark]"
 ```
 
 ## Configuration
@@ -117,6 +123,7 @@ tests/
 - Video generation tasks are asynchronous. Create a task first, then query its status.
 - Generated video URLs expire. Save or transfer results promptly.
 - For Seedance 2.0 input rules, duration, resolution, face-material restrictions, and other API details, see the local Chinese API documentation files in this repository.
+- To run real SDK integration tests, set `SEEDANCE_RUN_INTEGRATION_TESTS=1` and configure `SEEDANCE_API_KEY`.
 
 ## License
 
