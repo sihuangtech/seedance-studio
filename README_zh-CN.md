@@ -143,6 +143,10 @@ python -m pytest -m integration
 - Seedance 2.0 系列输入素材、时长、分辨率、真人脸部素材等规则请以目录内 API 文档为准。
 - 模型 ID 最终以你账号在火山方舟控制台中已开通的模型或 Endpoint ID 为准。
 
+## 星标历史
+
+[![Star History Chart](https://api.star-history.com/svg?repos=sihuangtech/seedance-studio&type=Date)](https://www.star-history.com/#sihuangtech/seedance-studio&Date)
+
 ## 许可证
 
 MIT。详见 [LICENSE](LICENSE)。

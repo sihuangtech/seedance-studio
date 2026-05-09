@@ -149,6 +149,10 @@ python -m pytest -m integration
 - For Seedance 2.0 input rules, duration, resolution, face-material restrictions, and other API details, see the local Chinese API documentation files in this repository.
 - Model IDs ultimately depend on the models or endpoint IDs enabled in your Volcengine Ark account.
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=sihuangtech/seedance-studio&type=Date)](https://www.star-history.com/#sihuangtech/seedance-studio&Date)
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
